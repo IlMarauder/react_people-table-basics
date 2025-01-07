@@ -2,20 +2,46 @@ import React, { useEffect, useState } from 'react';
 import { getPeople } from '../api';
 import { Person } from '../types';
 import { Loader } from '../components/Loader';
-import { SinglePerson } from '../components/Person/SinglePerson';
+import { PeopleTable } from '../components/PeopleTable';
 
 export const PeoplePage: React.FC = () => {
   const [people, setPeople] = useState<Person[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
+    setIsLoading(true);
 
     getPeople()
-      .then(peopleFromServer => setPeople(peopleFromServer))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      .then(peopleFromServer => {
+        peopleFromServer.map(person => {
+          if (!person.motherName) {
+            Object.assign(person, { motherName: '-' });
+          } else {
+            const foundedMother = peopleFromServer.find(
+              identity => identity.name === person.motherName,
+            );
+
+            Object.assign(person, { mother: foundedMother });
+          }
+
+          if (!person.fatherName) {
+            Object.assign(person, { fatherName: '-' });
+          } else {
+            const foundedFather = peopleFromServer.find(
+              identity => identity.name === person.fatherName,
+            );
+
+            Object.assign(person, { father: foundedFather });
+          }
+
+          return person;
+        });
+
+        setPeople(peopleFromServer);
+      })
+      .catch(() => setHasError(true))
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
@@ -25,40 +51,17 @@ export const PeoplePage: React.FC = () => {
 
         <div className="block">
           <div className="box table-container">
-            {loading ? (
-              <Loader />
-            ) : error ? (
+            {isLoading && <Loader />}
+            {!isLoading && hasError && (
               <p data-cy="peopleLoadingError" className="has-text-danger">
                 Something went wrong
               </p>
-            ) : !people.length ? (
+            )}
+            {!isLoading && !hasError && !people.length && (
               <p data-cy="noPeopleMessage">There are no people on the server</p>
-            ) : (
-              <table
-                data-cy="peopleTable"
-                className="table is-striped is-hoverable is-narrow is-fullwidth"
-              >
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Sex</th>
-                    <th>Born</th>
-                    <th>Died</th>
-                    <th>Mother</th>
-                    <th>Father</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {people.map(person => (
-                    <SinglePerson
-                      person={person}
-                      people={people}
-                      key={person.slug}
-                    />
-                  ))}
-                </tbody>
-              </table>
+            )}
+            {!isLoading && !hasError && !!people.length && (
+              <PeopleTable people={people} />
             )}
           </div>
         </div>
